@@ -100,3 +100,91 @@ sim_results_df |>
   geom_violin()
 ```
 
+
+# Simple Liner Regression
+
+Goal is to write a function that simulates data and then fits a regression; then repeat ti kook ta the distribution of estimate coeffcients.
+
+```{r}
+sim_regression = function(n, beta0 = 2, beta1 = 3) {
+  
+  sim_data = 
+    tibble(
+      x = rnorm(n, mean = 1, sd = 1),
+      y = beta0 + beta1 * x + rnorm(n, 0, 1)
+    )
+  
+  ls_fit = lm(y ~ x, data = sim_data)
+  
+  tibble(
+    beta0_hat = coef(ls_fit)[1],
+    beta1_hat = coef(ls_fit)[2]
+  )
+}
+```
+
+
+Run a whole bunch of items
+
+```{r}
+sim_results_df = 
+  expand_grid(
+    sample_size = 30,
+    iter = 1:500
+  ) |> 
+  mutate(
+    estimate_df = map(sample_size, sim_regression)
+  ) |> 
+  unnest(estimate_df)
+```
+
+Let's look at results
+
+```{r}
+sim_results_df |> 
+  summarise(
+    mean_beta1_hat = mean(beta1_hat),
+    mean_beta0_hat = mean(beta0_hat)
+  )
+```
+
+
+```{r}
+sim_results_df |> 
+  ggplot(aes(x = beta0_hat, y = beta1_hat)) + 
+  geom_point()
+
+sim_results_df |> 
+  ggplot(aes(x = beta0_hat)) + 
+  geom_histogram()
+```
+
+
+Varying two simulation parameters
+
+```{r}
+sim_results_df = 
+  expand_grid(
+    sample_size = c(30, 60, 120, 240),
+    true_sd = c(6, 3),
+    iter = 1:1000
+  ) |> 
+  mutate(
+    estimate_df = 
+      map2(sample_size, true_sd, \(n, sd) sim_mean_sd(n = n, sigma = sd))
+  ) |> 
+  unnest(estimate_df)
+```
+
+```{r}
+sim_results_df |> 
+  mutate(
+    true_sd = str_c("True SD: ", true_sd),
+    true_sd = fct_inorder(true_sd),
+    sample_size = str_c("n = ", sample_size),
+    sample_size = fct_inorder(sample_size)) |> 
+  ggplot(aes(x = sample_size, y = mu_hat, fill = sample_size)) + 
+  geom_violin() + 
+  facet_grid(. ~ true_sd)
+```
+
